@@ -1,17 +1,37 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import { DatabricksService } from './databricks.service';
 
 @Controller('databricks')
 export class DatabricksController {
   constructor(private readonly databricksService: DatabricksService) { }
 
-  @Get('query')
-  async query(@Query('sql') sql: string) {
+  @Get('campaigns')
+  async getCampaigns() {
     try {
-      const results = await this.databricksService.executeQuery(sql);
-      return { success: true, data: results };
+      const campaigns = await this.databricksService.getCampaigns();
+      return campaigns
     } catch (error) {
-      return { success: false, error: error.message };
+      return error;
+    }
+  }
+
+  @Get('metrics')
+  async getMetrics() {
+    try {
+      const metrics = await this.databricksService.getAllMetrics()
+      return metrics
+    } catch (err) {
+
+    }
+  }
+
+  @Get('metrics/campaign/:campaignName')
+  async getMetricsByCampaign(@Param('campaignName') campaignName: string) {
+    try {
+      const metrics = await this.databricksService.getCampaignMetrics(campaignName)
+      return metrics
+    } catch (err) {
+
     }
   }
 }
