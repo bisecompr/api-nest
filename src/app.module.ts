@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
+import { DatabricksModule } from './databricks/databricks.module';
 
 @Module({
-  imports: [],
+  imports: [DatabricksModule],
   controllers: [],
   providers: [],
 })
