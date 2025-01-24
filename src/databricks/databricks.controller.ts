@@ -1,37 +1,16 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { DatabricksService } from './databricks.service';
+import { ApiQuery } from '@nestjs/swagger';
 
 @Controller('databricks')
 export class DatabricksController {
   constructor(private readonly databricksService: DatabricksService) { }
 
-  @Get('campaigns')
-  async getCampaigns() {
-    try {
-      const campaigns = await this.databricksService.getCampaigns();
-      return campaigns
-    } catch (error) {
-      return error;
-    }
-  }
-
   @Get('metrics')
-  async getMetrics() {
-    try {
-      const metrics = await this.databricksService.getAllMetrics()
-      return metrics
-    } catch (err) {
-
-    }
-  }
-
-  @Get('metrics/campaign/:campaignName')
-  async getMetricsByCampaign(@Param('campaignName') campaignName: string) {
-    try {
-      const metrics = await this.databricksService.getCampaignMetrics(campaignName)
-      return metrics
-    } catch (err) {
-
-    }
+  @ApiQuery({ name: 'campaignName', required: false, type: String, description: 'Filter by campaign name' })
+  @ApiQuery({ name: 'startDate', required: false, type: String, description: 'Filter from start date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'endDate', required: false, type: String, description: 'Filter up to end date (YYYY-MM-DD)' })
+  async getMetrics(@Query('campaignName') campaignName?: string, @Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
+    return await this.databricksService.getMetrics(campaignName, startDate, endDate)
   }
 }
