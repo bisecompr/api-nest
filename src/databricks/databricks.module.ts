@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
-import { DatabricksService } from './databricks.service';
-import { DatabricksController } from './databricks.controller';
+import { PlatformDayService } from './platformDay.service';
+import { PlatformDayController } from './platformDay.controller';
+import { PlatformController } from './platform.controller';
 import { DatabricksConnectionProvider } from './databricks.provider';
+import { PlatformService } from './platform.service';
 
 @Module({
-  providers: [DatabricksService, DatabricksConnectionProvider],
-  controllers: [DatabricksController]
+  providers: [PlatformDayService, PlatformService, DatabricksConnectionProvider],
+  controllers: [PlatformDayController, PlatformController]
 })
 export class DatabricksModule { }
