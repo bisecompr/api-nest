@@ -11,22 +11,6 @@ export class PlatformDayService {
     wrapIdentifier: (value, origImpl) => `\`${value}\``
   })
 
-  private baseQuery = this.knexBuilder
-    .select('Nome_Interno_Campanha')
-    .sum({ spend: 'metrics_cost' })
-    .sum({ impressions: 'metrics_impressions' })
-    .sum({ clicks: 'metrics_clicks' })
-    .sum({ engagement: 'metrics_engagement' })
-    .sum({ 'video_views_total': 'metrics_video_views' })
-    .sum({ 'video_view_25%': 'metrics_video_25p' })
-    .sum({ 'video_view_50%': 'metrics_video_50p' })
-    .sum({ 'video_view_75%': 'metrics_video_75p' })
-    .sum({ 'video_view_100%': 'metrics_video_100p' })
-    .sum({ conversions_value: 'metrics_conversions_value' })
-    .from('main.plataformas.plataformas_dia')
-    .groupBy('Nome_Interno_Campanha')
-    .orderBy('impressions', 'desc')
-
   async getPlatformMetrics(campaignName?: string, startDate?: string, endDate?: string) {
     try {
       let query = this.knexBuilder
@@ -63,6 +47,8 @@ export class PlatformDayService {
         query.whereBetween('date', [lastWeekFormatted, todayFormatted])
 
       }
+      console.log(query.toString())
+      console.log('\n')
       const result = await this.connectionProvider.executeQuery(query.toString())
 
       const enrichedResult = result.map((row) => {
@@ -98,9 +84,24 @@ export class PlatformDayService {
   }
 
   async getMetrics(campaignName?: string, startDate?: string, endDate?: string) {
-    let baseQuery = this.baseQuery
 
-    if (startDate && endDate) {
+    let baseQuery = this.knexBuilder
+      .select('Nome_Interno_Campanha')
+      .sum({ spend: 'metrics_cost' })
+      .sum({ impressions: 'metrics_impressions' })
+      .sum({ clicks: 'metrics_clicks' })
+      .sum({ engagement: 'metrics_engagement' })
+      .sum({ 'video_views_total': 'metrics_video_views' })
+      .sum({ 'video_view_25%': 'metrics_video_25p' })
+      .sum({ 'video_view_50%': 'metrics_video_50p' })
+      .sum({ 'video_view_75%': 'metrics_video_75p' })
+      .sum({ 'video_view_100%': 'metrics_video_100p' })
+      .sum({ conversions_value: 'metrics_conversions_value' })
+      .from('main.plataformas.plataformas_dia')
+      .groupBy('Nome_Interno_Campanha')
+      .orderBy('impressions', 'desc')
+
+    if (!!startDate && !!endDate) {
       baseQuery = baseQuery
         .whereBetween('date', [startDate, endDate])
     } else {
@@ -119,6 +120,7 @@ export class PlatformDayService {
 
     const queryString = baseQuery.toString()
     console.log(queryString)
+    console.log('\n')
     return this.connectionProvider.executeQuery(queryString)
   }
 }
