@@ -21,4 +21,12 @@ export class PlatformDayController {
   async getPlatformsMetrics(@Query('campaignName') campaignName?: string, @Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
     return await this.platformDayService.getPlatformMetrics(campaignName, startDate, endDate)
   }
+
+  @Get('platform/meta/engagement')
+  @ApiQuery({ name: 'campaignName', required: false, type: String, description: 'Filter by campaign name' })
+  @ApiQuery({ name: 'startDate', required: false, type: String, description: 'Filter from start date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'endDate', required: false, type: String, description: 'Filter up to end date (YYYY-MM-DD)' })
+  async getMetaEngagement(@Query('campaignName') campaignName?: string, @Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
+    return await this.platformDayService.getMetaEngagement(campaignName, startDate, endDate)
+  }
 }

@@ -11,6 +11,55 @@ export class PlatformDayService {
     wrapIdentifier: (value, origImpl) => `\`${value}\``
   })
 
+  async getMetaEngagement(campaignName?: string, startDate?: string, endDate?: string) {
+    try {
+      let query = this.knexBuilder
+        .select(['campaign_name', 'actions', 'video_views'])
+        .from('main.plataformas.plataformas_meta')
+
+      if (!!startDate && !!endDate) {
+        query.whereBetween('date', [startDate, endDate])
+      } else {
+        const today = new Date()
+        let lastWeek = new Date()
+        lastWeek.setDate(today.getDate() - 7)
+        const todayFormatted = today.toISOString().split('T')[0];
+        const lastWeekFormatted = lastWeek.toISOString().split('T')[0];
+
+        query.whereBetween('date', [lastWeekFormatted, todayFormatted])
+      }
+      const stringQuery = query.toString()
+      const response = await this.connectionProvider.executeQuery(stringQuery)
+      console.log(response)
+      response.map(el => {
+        el['actions'] = JSON.parse(el['actions'])
+      })
+      const filteredCampaigns = response.filter(campaign =>
+        campaign.actions?.some(action =>
+          action.action_type === "post_reaction" || action.action_type === "comment"
+        )
+      )
+      const result = filteredCampaigns.map((campaign) => {
+        return {
+          campaignName: campaign['campaign_name'],
+          campaignId: campaign['campaign_id'] || null,
+          likes: campaign['actions']
+            .filter(action => action['action_type'] === 'post_reaction')
+            .reduce((sum, action) => (action['value'] || 0), 0),
+          comments: campaign['actions']
+            .filter(action => action['action_type'] === 'comment')
+            .reduce((sum, action) => (action['value'] || 0), 0),
+          views: campaign['video_views']
+        }
+      })
+      if (campaignName) {
+        result.filter(campaign => campaign['campaignName'] === campaignName)
+      }
+    } catch (err) {
+
+    }
+  }
+
   async getPlatformMetrics(campaignName?: string, startDate?: string, endDate?: string) {
     try {
       let query = this.knexBuilder
