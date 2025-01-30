@@ -15,7 +15,7 @@ export class PlatformDayService {
     try {
       let query = this.knexBuilder
         .select('platform')
-        .select('Nome_Interno_Campanha')
+        //.select('Nome_Interno_Campanha')
         .sum({ spend: 'metrics_cost' })
         .sum({ impressions: 'metrics_impressions' })
         .sum({ clicks: 'metrics_clicks' })
@@ -27,11 +27,12 @@ export class PlatformDayService {
         .sum({ 'video_view_100': 'metrics_video_100p' })
         .sum({ conversions_value: 'metrics_conversions_value' })
         .from('main.plataformas.plataformas_dia')
-        .groupBy(['platform', 'Nome_Interno_Campanha'])
+        .groupBy(['platform'])
         .orderBy('platform')
 
       if (campaignName) {
         query
+          .select('Nome_Interno_Campanha')
           .groupBy('platform', 'Nome_Interno_Campanha')
           .where('Nome_Interno_Campanha', campaignName)
       }
