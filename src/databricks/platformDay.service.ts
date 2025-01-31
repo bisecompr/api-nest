@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { DatabricksConnectionProvider } from './databricks.provider';
 import knex from 'knex';
+import { CASE_WHEN_NOME_INTERNO_CAMPANHA } from 'src/utils/query';
 
 @Injectable()
 export class PlatformDayService {
@@ -11,11 +12,41 @@ export class PlatformDayService {
     wrapIdentifier: (value, origImpl) => `\`${value}\``
   })
 
+  private aggregateCampaignData(data) {
+    return data.reduce((acc, campaign) => {
+      const { nomeInternoCampanha, likes, comment, views } = campaign;
+      const key = `${nomeInternoCampanha}`;
+
+      if (!acc[key]) {
+        acc[key] = {
+          nomeInternoCampanha,
+          likes: 0,
+          comment: 0,
+          views: 0
+        };
+      }
+
+      acc[key].likes += (likes ?? 0);
+      acc[key].comment += (comment ?? 0);
+      acc[key].views += (views ?? 0);
+
+      return acc;
+    }, {});
+  }
+
+
   async getMetaEngagement(campaignName?: string, startDate?: string, endDate?: string) {
+    let query = this.knexBuilder
+      .select([
+        this.knexBuilder.raw(CASE_WHEN_NOME_INTERNO_CAMPANHA),
+        'actions',
+        'video_views',
+      ])
+      .from('main.plataformas.plataformas_meta')
     try {
-      let query = this.knexBuilder
-        .select(['campaign_name', 'actions', 'video_views'])
-        .from('main.plataformas.plataformas_meta')
+      if (!!campaignName) {
+        query.where('Nome_Interno_Campanha', campaignName)
+      }
 
       if (!!startDate && !!endDate) {
         query.whereBetween('date', [startDate, endDate])
@@ -30,7 +61,6 @@ export class PlatformDayService {
       }
       const stringQuery = query.toString()
       const response = await this.connectionProvider.executeQuery(stringQuery)
-      console.log(response)
       response.map(el => {
         el['actions'] = JSON.parse(el['actions'])
       })
@@ -40,23 +70,24 @@ export class PlatformDayService {
         )
       )
       const result = filteredCampaigns.map((campaign) => {
+        const nomeInternoCampanha = campaign['Nome_Interno_Campanha']
+        const postReactionObject = campaign?.actions.filter(action => action?.action_type === 'post_reaction')
+        const likes = postReactionObject.length > 0 ? postReactionObject[0]['value'] : null
+        const commentObject = campaign?.actions.filter(action => action?.action_type === 'comment')
+        const comment = commentObject.length > 0 ? commentObject[0]['value'] : null
+        const views = campaign['video_views']
         return {
-          campaignName: campaign['campaign_name'],
-          campaignId: campaign['campaign_id'] || null,
-          likes: campaign['actions']
-            .filter(action => action['action_type'] === 'post_reaction')
-            .reduce((sum, action) => (action['value'] || 0), 0),
-          comments: campaign['actions']
-            .filter(action => action['action_type'] === 'comment')
-            .reduce((sum, action) => (action['value'] || 0), 0),
-          views: campaign['video_views']
+          nomeInternoCampanha,
+          likes,
+          comment,
+          views
         }
       })
-      if (campaignName) {
-        result.filter(campaign => campaign['campaignName'] === campaignName)
-      }
-    } catch (err) {
+      const aggregatedData = Object.values(this.aggregateCampaignData(result))
 
+      return aggregatedData
+    } catch (err) {
+      console.error(err)
     }
   }
 
@@ -97,8 +128,6 @@ export class PlatformDayService {
         query.whereBetween('date', [lastWeekFormatted, todayFormatted])
 
       }
-      console.log(query.toString())
-      console.log('\n')
       const result = await this.connectionProvider.executeQuery(query.toString())
 
       const enrichedResult = result.map((row) => {
