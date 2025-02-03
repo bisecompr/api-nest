@@ -5,8 +5,5 @@
     ],
     "routes": [
       { "src": "/(.*)", "dest": "src/main.ts" }
-    ],
-    "env": {
-      "DATABASE_URL": "@databricks_connection_string"
-    }
+    ]    
   }
