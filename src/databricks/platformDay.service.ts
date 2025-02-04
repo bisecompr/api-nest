@@ -95,7 +95,6 @@ export class PlatformDayService {
     try {
       let query = this.knexBuilder
         .select('platform')
-        //.select('Nome_Interno_Campanha')
         .sum({ spend: 'metrics_cost' })
         .sum({ impressions: 'metrics_impressions' })
         .sum({ clicks: 'metrics_clicks' })
@@ -155,9 +154,12 @@ export class PlatformDayService {
         };
       });
 
-      return enrichedResult;
+      return enrichedResult.map(item => {
+        item['platform'] = item['platform'].charAt(0).toUpperCase() + item['platform'].slice(1)
+        return item
+      })
     } catch (err) {
-      throw new HttpException(`Não foi possível buscar as informações, erro: ${err}`, HttpStatus.BAD_REQUEST)
+      throw new HttpException(Não foi possível buscar as informações, erro: ${err}, HttpStatus.BAD_REQUEST)
     }
 
   }
