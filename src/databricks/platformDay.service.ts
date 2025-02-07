@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { DatabricksConnectionProvider } from './databricks.provider';
 import knex from 'knex';
-import { CASE_WHEN_NOME_INTERNO_CAMPANHA } from 'src/utils/query';
+import { CASE_WHEN_NOME_INTERNO_CAMPANHA } from '../utils/query';
 
 @Injectable()
 export class PlatformDayService {
