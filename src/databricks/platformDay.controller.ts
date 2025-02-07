@@ -30,7 +30,6 @@ export class PlatformDayController {
     return await this.platformDayService.getMetaEngagement(campaignName, startDate, endDate)
   }
 
-
   @Get('chart')
   @ApiQuery({ name: 'campaignName', required: false, type: String, description: 'Filter by campaign name' })
   @ApiQuery({ name: 'startDate', required: false, type: String, description: 'Filter from start date (YYYY-MM-DD)' })
