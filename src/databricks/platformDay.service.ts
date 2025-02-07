@@ -412,4 +412,4 @@ export class PlatformDayService {
 
     return { actual, previous }
   }
-}
+} 
