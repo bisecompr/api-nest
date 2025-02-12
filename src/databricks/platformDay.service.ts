@@ -180,24 +180,35 @@ export class PlatformDayService {
     return this.connectionProvider.executeQuery(queryString)
   }
 
-  async getMetricsSegmentedByDate(campaignName?, startDate?: string, endDate?: string) {
+  async getMetricsForChart(campaignName?, startDate?: string, endDate?: string) {
     try {
       if (!startDate || !endDate) {
+        const today = new Date()
+        let yesterday = new Date()
+        let lastPeriodStartDate = new Date()
+        yesterday.setDate(today.getDate() - 1)
+        lastPeriodStartDate.setDate(yesterday.getDate() - 13)
+        const yesterdayString = yesterday.toISOString().split('T')[0];
+        const lastPeriodStartDateString = lastPeriodStartDate.toISOString().split('T')[0];
 
-        return await this.getChartByWeekDayForLastWeek(campaignName)
+        return await this.getChartByWeekDayForLastWeek(lastPeriodStartDateString, yesterdayString, campaignName)
       } else {
         const endDateDated = new Date(endDate)
+        const endDateString = endDateDated.toISOString().split('T')[0];
         const startDateDated = new Date(startDate)
+        const milisectDiff = endDateDated.getTime() - startDateDated.getTime()
+        const lastPeriodStartDate = new Date(startDateDated.getTime() - milisectDiff - 1000 * 60 * 60 * 24)
+        const lastPeriodStartDateString = lastPeriodStartDate.toISOString().split('T')[0];
+
         const daysOffset = (endDateDated.getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24) + 1
-        console.log(daysOffset)
         if (daysOffset <= 14) {
-          return this.getChartByWeekDay(startDateDated, endDateDated, campaignName)
+          return await this.getChartByWeekDay(lastPeriodStartDateString, endDateString, campaignName)
         }
         if (daysOffset <= 30) {
-          return this.getChartByWeekCount(startDateDated, endDateDated, campaignName)
+          return await this.getChartByWeekCount(lastPeriodStartDateString, endDateString, campaignName)
         }
         if (daysOffset > 30) {
-          return this.getChartByMonth(startDateDated, endDateDated, campaignName)
+          return await this.getChartByMonth(lastPeriodStartDateString, endDateString, campaignName)
         }
       }
     } catch (err) {
@@ -226,15 +237,8 @@ export class PlatformDayService {
     }, {});
   }
 
-  private async getChartByWeekDayForLastWeek(campaignName?: string) {
+  private async getChartByWeekDayForLastWeek(lastPeriod: string, yesterday: string, campaignName?: string) {
     const knex = this.knexBuilder
-    const today = new Date()
-    let yesterday = new Date()
-    let lastWeek = new Date()
-    yesterday.setDate(today.getDate() - 1)
-    lastWeek.setDate(yesterday.getDate() - 13)
-    const yesterdayString = yesterday.toISOString().split('T')[0];
-    const lastWeekString = lastWeek.toISOString().split('T')[0];
     let baseQuery = knex
       .select([
         'date',
@@ -263,7 +267,7 @@ export class PlatformDayService {
       .from('main.plataformas.plataformas_dia')
       .groupBy("date")
       .orderBy('date', 'asc')
-      .whereBetween('date', [lastWeekString, yesterdayString])
+      .whereBetween('date', [lastPeriod, yesterday])
 
     if (!!campaignName) {
       baseQuery.select('Nome_Interno_Campanha')
@@ -280,13 +284,7 @@ export class PlatformDayService {
     return { previous, actual }
   }
 
-  private async getChartByWeekDay(startDate: Date, endDate: Date, campaignName?) {
-    const endDateDated = new Date(endDate)
-    const startDateDated = new Date(startDate)
-    const endDateString = endDateDated.toISOString().split('T')[0];
-    const milisectDiff = endDateDated.getTime() - startDateDated.getTime()
-    const lastPeriodStart = new Date(startDateDated.getTime() - milisectDiff - 1000 * 60 * 60 * 24)
-    const lastPeriodStartString = lastPeriodStart.toISOString().split('T')[0];
+  private async getChartByWeekDay(lastPeriodStartString: string, endDateString: string, campaignName?) {
 
     let baseQuery = this.knexBuilder
       .select([
@@ -334,12 +332,7 @@ export class PlatformDayService {
     return { previous, actual }
   }
 
-  private async getChartByWeekCount(startDate: Date, endDate: Date, campaignName?) {
-    const endDateString = endDate.toISOString().split('T')[0];
-    const daysOffset = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24) + 1
-    const milisecOffset = daysOffset * (1000 * 60 * 60 * 24)
-    const lastPeriod = new Date(startDate.getTime() - milisecOffset)
-    const lastPeriodStartString = lastPeriod.toISOString().split('T')[0];
+  private async getChartByWeekCount(lastPeriodStartString: string, endDateString: string, campaignName?) {
 
     let baseQuery = this.knexBuilder
       .select('date')
@@ -384,26 +377,11 @@ export class PlatformDayService {
     return { previous, actual }
   }
 
-  // Inicio - FIM => ======
-  // NovoInicio ======= Inicio ======= FIM
-
-  //  Inicio - Fim => ====== | =
-  // = | ======= Inicio ====== | = FIM
-
-  // ====== | = Inicio ====== | = FIM
-
-  private async getChartByMonth(startDate: Date, endDate: Date, campaignName?) {
-    const endDateString = endDate.toISOString().split('T')[0];
-    const daysOffset = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24) + 1
-    const milisecOffset = daysOffset * (1000 * 60 * 60 * 24)
-    const lastPeriod = new Date(startDate.getTime() - milisecOffset)
-    const lastPeriodStartString = lastPeriod.toISOString().split('T')[0];
-
+  private async getChartByMonth(lastPeriodStartString: string, endDateString: string, campaignName?) {
     let baseQuery = this.knexBuilder
       .select([
-        this.knexBuilder.raw(`date_format(DATE_TRUNC('MONTH', date), 'MMMM') AS Mes`),
-        this.knexBuilder.raw('MIN(date) AS Inicio_mes'),
-        this.knexBuilder.raw('MAX(date) AS Fim_mes')
+        'date',
+        this.knexBuilder.raw(`date_format(DATE_TRUNC('MONTH', date), 'MMMM') AS label`),
       ])
       .sum({ spend: 'metrics_cost' })
       .sum({ impressions: 'metrics_impressions' })
@@ -417,8 +395,8 @@ export class PlatformDayService {
       .sum({ conversions_value: 'metrics_conversions_value' })
       .from('main.plataformas.plataformas_dia')
       .whereBetween('date', [lastPeriodStartString, endDateString])
-      .groupBy('Mes')
-      .orderBy('Inicio_mes', 'asc')
+      .groupBy('date')
+      .orderBy('date',)
 
     if (campaignName) {
       baseQuery.select('Nome_Interno_Campanha')
@@ -431,14 +409,8 @@ export class PlatformDayService {
 
     const middleIndex = queryResult.length / 2
 
-    const previous = queryResult.slice(0, middleIndex).reverse().map((item, idx) => ({
-      ...item,
-      label: `Mês_${idx + 1}`
-    }))
-    const actual = queryResult.slice(middleIndex, queryResult.length).map((item, idx) => ({
-      ...item,
-      label: `Mês_${idx + 1}`
-    }))
+    const previous = queryResult.slice(0, middleIndex).reverse()
+    const actual = queryResult.slice(middleIndex, queryResult.length)
 
     return { previous, actual }
   }
