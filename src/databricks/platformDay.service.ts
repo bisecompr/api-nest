@@ -208,7 +208,7 @@ export class PlatformDayService {
           return await this.getChartByWeekCount(lastPeriodStartDateString, endDateString, campaignName)
         }
         if (daysOffset > 30) {
-          return await this.getChartByMonth(lastPeriodStartDateString, endDateString, campaignName)
+          return await this.getChartByMonth(startDateDated, endDateDated, campaignName)
         }
       }
     } catch (err) {
@@ -377,11 +377,18 @@ export class PlatformDayService {
     return { previous, actual }
   }
 
-  private async getChartByMonth(lastPeriodStartString: string, endDateString: string, campaignName?) {
+  private async getChartByMonth(startDate: Date, endDateString: Date, campaignName?) {
+    const endDate = endDateString.toISOString().split('T')[0];
+    const daysOffset = (endDateString.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24) + 1
+    const milisecOffset = daysOffset * (1000 * 60 * 60 * 24)
+    const lastPeriod = new Date(startDate.getTime() - milisecOffset)
+    const lastPeriodStartString = lastPeriod.toISOString().split('T')[0];
+
     let baseQuery = this.knexBuilder
       .select([
-        'date',
-        this.knexBuilder.raw(`date_format(DATE_TRUNC('MONTH', date), 'MMMM') AS label`),
+        this.knexBuilder.raw(`date_format(DATE_TRUNC('MONTH', date), 'MMMM') AS Mes`),
+        this.knexBuilder.raw('MIN(date) AS Inicio_mes'),
+        this.knexBuilder.raw('MAX(date) AS Fim_mes')
       ])
       .sum({ spend: 'metrics_cost' })
       .sum({ impressions: 'metrics_impressions' })
@@ -395,8 +402,8 @@ export class PlatformDayService {
       .sum({ conversions_value: 'metrics_conversions_value' })
       .from('main.plataformas.plataformas_dia')
       .whereBetween('date', [lastPeriodStartString, endDateString])
-      .groupBy('date')
-      .orderBy('date',)
+      .groupBy('Mes')
+      .orderBy('Inicio_mes', 'asc')
 
     if (campaignName) {
       baseQuery.select('Nome_Interno_Campanha')
@@ -409,8 +416,14 @@ export class PlatformDayService {
 
     const middleIndex = queryResult.length / 2
 
-    const previous = queryResult.slice(0, middleIndex).reverse()
-    const actual = queryResult.slice(middleIndex, queryResult.length)
+    const previous = queryResult.slice(0, middleIndex).reverse().map((item, idx) => ({
+      ...item,
+      label: `Mês_${idx + 1}`
+    }))
+    const actual = queryResult.slice(middleIndex, queryResult.length).map((item, idx) => ({
+      ...item,
+      label: `Mês_${idx + 1}`
+    }))
 
     return { previous, actual }
   }
