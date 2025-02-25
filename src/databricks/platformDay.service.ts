@@ -107,20 +107,27 @@ export class PlatformDayService {
       const result = await this.connectionProvider.executeQuery(query.toString())
 
       const enrichedResult = result.map((row) => {
+        // Valores agregados já trazidos da consulta
         const { spend, impressions, clicks, video_views_total, video_view_100 } = row;
-
-        const safeSpend = spend || 0
-        const safeImpressions = impressions || 0
-        const safeClicks = clicks || 0
-        const safeVideoViews = video_views_total || 0
-        const safeMetricsVideo100 = video_view_100 || 0
-
-        const CPM = safeImpressions > 0 ? (safeSpend / (safeImpressions / 1000)) : null
-        const CPV = safeVideoViews > 0 ? (safeSpend / safeVideoViews) : null
-        const CPC = safeClicks > 0 ? (safeSpend / safeClicks) : null
-        const CTR = safeImpressions > 0 ? ((safeClicks / safeImpressions) * 100) : null
-        const VTR = safeVideoViews > 0 ? (safeMetricsVideo100 / safeVideoViews) : null
-
+      
+        // Garantindo que os valores numéricos estejam definidos (ou zero)
+        const safeSpend = spend || 0;
+        const safeImpressions = impressions || 0;
+        const safeClicks = clicks || 0;
+        const safeVideoViews = video_views_total || 0;
+        const safeMetricsVideo100 = video_view_100 || 0;
+      
+        const CPM = safeImpressions > 0 ? (safeSpend / (safeImpressions / 1000)) : null;
+        const CPV = safeVideoViews > 0 ? (safeSpend / safeVideoViews) : null;
+        const CPC = safeClicks > 0 ? (safeSpend / safeClicks) : null;
+      
+        const ctrValue = safeImpressions > 0 ? safeClicks / safeImpressions : 0;
+        const CTR = (ctrValue === 1) ? 0 : ctrValue;
+      
+        const impressionsWithVideo = safeMetricsVideo100 > 0 ? safeImpressions : 0;
+        const vtrValue = impressionsWithVideo > 0 ? safeMetricsVideo100 / impressionsWithVideo : 0;
+        const VTR = (vtrValue === 1) ? 0 : vtrValue;
+      
         return {
           ...row,
           CPM,
@@ -130,6 +137,7 @@ export class PlatformDayService {
           VTR
         };
       });
+      
 
       return enrichedResult.map(item => {
         item['platform'] = item['platform'].charAt(0).toUpperCase() + item['platform'].slice(1)
