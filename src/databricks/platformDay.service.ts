@@ -76,13 +76,17 @@ export class PlatformDayService {
         .sum({ impressions: 'metrics_impressions' })
         .sum({ clicks: 'metrics_clicks' })
         .sum({ engagement: 'metrics_engagement' })
-        .sum({ 'video_views_total': 'metrics_video_views' })
-        .sum({ 'video_view_25': 'metrics_video_25p' })
-        .sum({ 'video_view_50': 'metrics_video_50p' })
-        .sum({ 'video_view_75': 'metrics_video_75p' })
-        .sum({ 'video_view_100': 'metrics_video_100p' })
+        .sum({ video_views_total: 'metrics_video_views' })
+        .sum({ video_view_25: 'metrics_video_25p' })
+        .sum({ video_view_50: 'metrics_video_50p' })
+        .sum({ video_view_75: 'metrics_video_75p' })
+        .sum({ video_view_100: 'metrics_video_100p' })
         .sum({ conversions_value: 'metrics_conversions_value' })
-        // Campo agregado: soma das impressions apenas quando metrics_video_100p > 0
+        // Agrega custo somente para os registros onde Tipo_Compra = 'CPV'
+        .select(this.knexBuilder.raw("SUM(CASE WHEN Tipo_Compra = 'CPV' THEN metrics_cost ELSE 0 END) as CPV_cost"))
+        // Agrega as visualizações (video_views) somente para os registros onde Tipo_Compra = 'CPV'
+        .select(this.knexBuilder.raw("SUM(CASE WHEN Tipo_Compra = 'CPV' THEN metrics_video_views ELSE 0 END) as CPV_video_views"))
+        // Campo para o cálculo do VTR, considerando apenas as impressions onde metrics_video_100p > 0
         .select(this.knexBuilder.raw("SUM(CASE WHEN metrics_video_100p > 0 THEN metrics_impressions ELSE 0 END) as impressionsWithVideo"))
         .from('main.plataformas.plataformas_dia')
         .groupBy(['platform'])
@@ -109,7 +113,7 @@ export class PlatformDayService {
 
       const enrichedResult = result.map((row) => {
         // Valores agregados já trazidos da consulta
-        const { spend, impressions, clicks, video_views_total, video_view_100, impressionsWithVideo } = row;
+        const { spend, impressions, clicks, video_views_total, video_view_100, impressionsWithVideo, CPV_cost, CPV_video_views } = row;
       
         // Garantindo que os valores numéricos estejam definidos (ou zero)
         const safeSpend = spend || 0;
@@ -118,15 +122,18 @@ export class PlatformDayService {
         const safeVideoViews = video_views_total || 0;
         const safeMetricsVideo100 = video_view_100 || 0;
         const safeImpressionsWithVideo = impressionsWithVideo || 0;
+        const safeCPVCost = CPV_cost || 0;
+        const safeCPVVideoViews = CPV_video_views || 0;
       
         const CPM = safeImpressions > 0 ? (safeSpend / (safeImpressions / 1000)) : null;
-        const CPV = safeVideoViews > 0 ? (safeSpend / safeVideoViews) : null;
+        // Cálculo do CPV: somente para registros onde Tipo_Compra == 'CPV'
+        const CPV = safeCPVVideoViews !== 0 ? (safeCPVCost / safeCPVVideoViews) : 0;
         const CPC = safeClicks > 0 ? (safeSpend / safeClicks) : null;
       
         const ctrValue = safeImpressions > 0 ? safeClicks / safeImpressions : 0;
         const CTR = (ctrValue === 1) ? 0 : ctrValue;
       
-        // Cálculo do VTR: usando a soma filtrada das impressions (safeImpressionsWithVideo)
+        // Cálculo do VTR utilizando a soma filtrada das impressions
         const vtrValue = safeImpressionsWithVideo > 0 ? safeMetricsVideo100 / safeImpressionsWithVideo : 0;
         const VTR = (vtrValue === 1) ? 0 : vtrValue;
       
@@ -156,7 +163,7 @@ export class PlatformDayService {
       .sum({ impressions: 'metrics_impressions' })
       .sum({ clicks: 'metrics_clicks' })
       .sum({ engagement: 'metrics_engagement' })
-      .sum({ 'video_views_total': 'metrics_video_views' })
+      .sum({ video_views_total: 'metrics_video_views' })
       .sum({ 'video_view_25%': 'metrics_video_25p' })
       .sum({ 'video_view_50%': 'metrics_video_50p' })
       .sum({ 'video_view_75%': 'metrics_video_75p' })
@@ -266,7 +273,7 @@ export class PlatformDayService {
       .sum({ impressions: 'metrics_impressions' })
       .sum({ clicks: 'metrics_clicks' })
       .sum({ engagement: 'metrics_engagement' })
-      .sum({ 'video_views_total': 'metrics_video_views' })
+      .sum({ video_views_total: 'metrics_video_views' })
       .sum({ 'video_view_25%': 'metrics_video_25p' })
       .sum({ 'video_view_50%': 'metrics_video_50p' })
       .sum({ 'video_view_75%': 'metrics_video_75p' })
