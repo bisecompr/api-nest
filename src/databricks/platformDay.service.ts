@@ -82,6 +82,8 @@ export class PlatformDayService {
         .sum({ 'video_view_75': 'metrics_video_75p' })
         .sum({ 'video_view_100': 'metrics_video_100p' })
         .sum({ conversions_value: 'metrics_conversions_value' })
+        // Campo agregado: soma das impressions apenas quando metrics_video_100p > 0
+        .select(this.knexBuilder.raw("SUM(CASE WHEN metrics_video_100p > 0 THEN metrics_impressions ELSE 0 END) as impressionsWithVideo"))
         .from('main.plataformas.plataformas_dia')
         .groupBy(['platform'])
         .orderBy('platform')
@@ -102,13 +104,12 @@ export class PlatformDayService {
         const lastWeekFormatted = lastWeek.toISOString().split('T')[0];
 
         query.whereBetween('date', [lastWeekFormatted, todayFormatted])
-
       }
       const result = await this.connectionProvider.executeQuery(query.toString())
 
       const enrichedResult = result.map((row) => {
         // Valores agregados já trazidos da consulta
-        const { spend, impressions, clicks, video_views_total, video_view_100 } = row;
+        const { spend, impressions, clicks, video_views_total, video_view_100, impressionsWithVideo } = row;
       
         // Garantindo que os valores numéricos estejam definidos (ou zero)
         const safeSpend = spend || 0;
@@ -116,6 +117,7 @@ export class PlatformDayService {
         const safeClicks = clicks || 0;
         const safeVideoViews = video_views_total || 0;
         const safeMetricsVideo100 = video_view_100 || 0;
+        const safeImpressionsWithVideo = impressionsWithVideo || 0;
       
         const CPM = safeImpressions > 0 ? (safeSpend / (safeImpressions / 1000)) : null;
         const CPV = safeVideoViews > 0 ? (safeSpend / safeVideoViews) : null;
@@ -124,8 +126,8 @@ export class PlatformDayService {
         const ctrValue = safeImpressions > 0 ? safeClicks / safeImpressions : 0;
         const CTR = (ctrValue === 1) ? 0 : ctrValue;
       
-        const impressionsWithVideo = safeMetricsVideo100 > 0 ? safeImpressions : 0;
-        const vtrValue = impressionsWithVideo > 0 ? safeMetricsVideo100 / impressionsWithVideo : 0;
+        // Cálculo do VTR: usando a soma filtrada das impressions (safeImpressionsWithVideo)
+        const vtrValue = safeImpressionsWithVideo > 0 ? safeMetricsVideo100 / safeImpressionsWithVideo : 0;
         const VTR = (vtrValue === 1) ? 0 : vtrValue;
       
         return {
@@ -138,7 +140,6 @@ export class PlatformDayService {
         };
       });
       
-
       return enrichedResult.map(item => {
         item['platform'] = item['platform'].charAt(0).toUpperCase() + item['platform'].slice(1)
         return item
@@ -146,11 +147,9 @@ export class PlatformDayService {
     } catch (err) {
       throw new HttpException(`Não foi possível buscar as informações, erro: ${err}`, HttpStatus.BAD_REQUEST)
     }
-
   }
 
   async getMetrics(campaignName?: string, startDate?: string, endDate?: string) {
-
     let baseQuery = this.knexBuilder
       .select('Nome_Interno_Campanha')
       .sum({ spend: 'metrics_cost' })
@@ -223,6 +222,7 @@ export class PlatformDayService {
       throw new HttpException(`${err}`, HttpStatus.BAD_REQUEST)
     }
   }
+
   private aggregateCampaignData(data) {
     return data.reduce((acc, campaign) => {
       const { nomeInternoCampanha, likes, comment, views } = campaign;
@@ -293,7 +293,6 @@ export class PlatformDayService {
   }
 
   private async getChartByWeekDay(lastPeriodStartString: string, endDateString: string, campaignName?) {
-
     let baseQuery = this.knexBuilder
       .select([
         'date',
@@ -334,14 +333,12 @@ export class PlatformDayService {
 
     const midPoint = queryResult.length / 2
     const previous = queryResult.slice(0, midPoint)
-
     const actual = queryResult.slice(midPoint, queryResult.length)
 
     return { previous, actual }
   }
 
   private async getChartByWeekCount(lastPeriodStartString: string, endDateString: string, campaignName?) {
-
     let baseQuery = this.knexBuilder
       .select('date')
       .sum({ spend: 'metrics_cost' })
